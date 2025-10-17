@@ -34,11 +34,23 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import com.example.nfcreader.BusCard;
+import com.example.nfcreader.CardType;
+import com.example.nfcreader.CardStatus;
+import com.example.nfcreader.AESEncryption;
 
 public class MainActivity extends AppCompatActivity {
     private final String TAG = MainActivity.class.getSimpleName();
     private TextView tv;
     private Button b_open;
+    
+    // Yeni UI elementleri
+    private TextView tvStatus;
+    private TextView tvCardHolderName;
+    private TextView tvCardType;
+    private TextView tvCurrentBalance;
+    private TextView tvDeductedAmount;
+    private TextView tvRemainingBalance;
     private final int MSG_CLEAR_TEXT = 2;
     private final int MSG_APPEND_TEXT = 1;
     private final int MSG_ID_CARD = 11;
@@ -72,6 +84,15 @@ public class MainActivity extends AppCompatActivity {
     private static final int START_PAGE = 4; // user area start
     private static final int MAX_BLOCKS_ALLOWED = 12; // eski 16-byte block sayısı; page eşdeğeri = *4
     // ----------------------------------------------------
+    
+    // ---------- BAKIYE KESME SİSTEMİ ----------
+    private static final BigDecimal TAM_FARE = new BigDecimal("5.00");
+    private static final BigDecimal OGRENCI_FARE = new BigDecimal("2.50");
+    private static final BigDecimal YETISKIN_FARE = new BigDecimal("4.00");
+    private static final BigDecimal YASLI_FARE = new BigDecimal("2.00");
+    private static final BigDecimal ENGELLI_FARE = new BigDecimal("1.00");
+    private static final BigDecimal COCUK_FARE = new BigDecimal("1.50");
+    // -----------------------------------------
 
     /**
      * execute shell commands
@@ -178,6 +199,15 @@ public class MainActivity extends AppCompatActivity {
         Toolbar myToolbar = (Toolbar) findViewById(R.id.main_toolbar);
         b_open = findViewById(R.id.buttonOpen);
         tv = findViewById(R.id.textView);
+        
+        // Yeni UI elementlerini bağla
+        tvStatus = findViewById(R.id.tvStatus);
+        tvCardHolderName = findViewById(R.id.tvCardHolderName);
+        tvCardType = findViewById(R.id.tvCardType);
+        tvCurrentBalance = findViewById(R.id.tvCurrentBalance);
+        tvDeductedAmount = findViewById(R.id.tvDeductedAmount);
+        tvRemainingBalance = findViewById(R.id.tvRemainingBalance);
+        
         setSupportActionBar(myToolbar);
         
         // Uygulama başladığında otomatik port aç ve kart okumaya başla
@@ -195,8 +225,12 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 b_open.setText("Port Açık");
-                                appendLog("✅ Port başarıyla açıldı!");
-                                appendLog("🔍 Şifreli kart okuma modu aktif - Kartı yaklaştırın...");
+                                tvStatus.setText("✅ Port açık - Kart bekleniyor...");
+                                appendBalanceLog("🚀 Uygulama başlatıldı");
+                                appendBalanceLog("📡 Port başarıyla açıldı");
+                                appendBalanceLog("🔍 Bakiye kesme sistemi aktif");
+                                appendBalanceLog("💳 Kartı yaklaştırın...");
+                                appendBalanceLog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
                             }
                         });
                         
@@ -206,7 +240,8 @@ public class MainActivity extends AppCompatActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                appendLog("❌ Port açılamadı! Lütfen cihazı kontrol edin.");
+                                tvStatus.setText("❌ Port açılamadı!");
+                                appendBalanceLog("❌ Port açılamadı! Cihazı kontrol edin.");
                             }
                         });
                     }
@@ -214,7 +249,8 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            appendLog("❌ HATA: " + e.getMessage());
+                                tvStatus.setText("❌ Hata oluştu!");
+                                appendBalanceLog("❌ HATA: " + e.getMessage());
                         }
                     });
                 }
@@ -302,7 +338,7 @@ public class MainActivity extends AppCompatActivity {
 
     private int detectMifareCard() {
         while (true) {
-            SystemClock.sleep(500);
+            // Delay kaldırıldı - hızlandırma için
             String[] resultArr = BasicOper.dc_reset().split("\\|", -1);
             if (!resultArr[0].equals("0000")) {
                 appendLog("dc_reset error");
@@ -322,22 +358,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int removeM1Card() {
-        appendLog("please remove card>>>>>>>>>>");
-        while (true) {
-            SystemClock.sleep(500);
-            String[] resultArr = BasicOper.dc_reset().split("\\|", -1);
-            if (!resultArr[0].equals("0000")) {
-                return -1;
-            }
-            resultArr = BasicOper.dc_config_card(DISCOVERY_CARD_TYPEA).split("\\|", -1);
-            if (!resultArr[0].equals("0000")) {
-                return -1;
-            }
-            resultArr = BasicOper.dc_card_n_hex(DISCOVERY_MODE_ALL_CARD).split("\\|", -1);
-            if (!resultArr[0].equals("0000")) {
+        // Kart çıkarma beklemesi kaldırıldı - anında yeni karta geçiş
                 return 0;
-            }
-        }
     }
 
     public int openReader() {
@@ -362,11 +384,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onOpenReader(View v) {
-        // Bu metod artık kullanılmıyor - otomatik port açma aktif
-        // Sadece log temizleme için kullanılabilir
+        // Port durumunu kontrol et ve logları temizle
         clearLog();
-        appendLog("🔍 Otomatik şifreli kart okuma modu aktif");
-        appendLog("📡 Port durumu: " + (isReaderOpened() ? "Açık" : "Kapalı"));
+        tvStatus.setText(isReaderOpened() ? "✅ Port açık - Kart bekleniyor..." : "❌ Port kapalı!");
+        appendBalanceLog("🔍 Port durumu: " + (isReaderOpened() ? "Açık" : "Kapalı"));
+        appendBalanceLog("💳 Bakiye kesme sistemi aktif");
+        appendBalanceLog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     /**
@@ -466,7 +489,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 currentBlock++;
-                SystemClock.sleep(20);
+                // Delay kaldırıldı - hızlandırma için
             }
 
             if (!foundData) {
@@ -517,7 +540,228 @@ public class MainActivity extends AppCompatActivity {
     }
     
     /**
-     * NfcCardReader.java'dan alınan BusCard okuma fonksiyonu
+     * Kart tipine göre bakiye kesme miktarını döndürür
+     */
+    private BigDecimal getFareByCardType(CardType cardType) {
+        if (cardType == null) return TAM_FARE;
+        
+        switch (cardType) {
+            case TAM:
+                return TAM_FARE;
+            case STUDENT:
+                return OGRENCI_FARE;
+            case ADULT:
+                return YETISKIN_FARE;
+            case SENIOR:
+                return YASLI_FARE;
+            case DISABLED:
+                return ENGELLI_FARE;
+            case CHILD:
+                return COCUK_FARE;
+            default:
+                return TAM_FARE;
+        }
+    }
+    
+    /**
+     * BusCard bakiyesini düşürür ve işlem bilgilerini günceller
+     * SABİT BİLGİLER KORUNUR: id, cardNumber, fullName, type, status, active, expiryDate, visaCompleted
+     */
+    private BusCard deductBalanceFromCard(BusCard busCard) {
+        if (busCard == null) return null;
+        
+        // Kart tipine göre ücret belirle
+        BigDecimal fare = getFareByCardType(busCard.getType());
+        
+        // Mevcut bakiye kontrolü
+        BigDecimal currentBalance = busCard.getBalance() != null ? busCard.getBalance() : BigDecimal.ZERO;
+        
+        // UI'yi güncelle
+        runOnUiThread(() -> {
+            tvCardHolderName.setText(busCard.getFullName() != null ? busCard.getFullName() : "Bilinmiyor");
+            tvCardType.setText(busCard.getType() != null ? busCard.getType().getDisplayName() : "Bilinmiyor");
+            tvCurrentBalance.setText(currentBalance + " TL");
+            tvDeductedAmount.setText("-");
+            tvRemainingBalance.setText("-");
+        });
+        
+        if (currentBalance.compareTo(fare) < 0) {
+            appendBalanceLog("❌ YETERSİZ BAKİYE!");
+            appendBalanceLog("💰 Mevcut: " + currentBalance + " TL");
+            appendBalanceLog("💳 Gerekli: " + fare + " TL");
+            appendBalanceLog("🚫 İşlem iptal edildi!");
+            
+            // UI'yi güncelle
+            runOnUiThread(() -> {
+                tvDeductedAmount.setText("YETERSİZ BAKİYE");
+                tvDeductedAmount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                tvRemainingBalance.setText(currentBalance + " TL");
+                tvRemainingBalance.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            });
+            
+            return busCard; // Bakiye yetersizse değişiklik yapma
+        }
+        
+        // SADECE İŞLEM BİLGİLERİNİ GÜNCELLE - SABİT BİLGİLER KORUNUR
+        BigDecimal newBalance = currentBalance.subtract(fare);
+        busCard.setBalance(newBalance);
+        
+        // İşlem bilgilerini güncelle
+        busCard.setLastTransactionAmount(fare);
+        busCard.setLastTransactionDate(LocalDate.now());
+        busCard.setTransactionCount(busCard.getTransactionCount() + 1);
+        
+        appendBalanceLog("✅ BAKİYE DÜŞÜRÜLDÜ!");
+        appendBalanceLog("💰 Eski Bakiye: " + currentBalance + " TL");
+        appendBalanceLog("💳 Kesilen Ücret: " + fare + " TL (" + busCard.getType().getDisplayName() + ")");
+        appendBalanceLog("💰 Yeni Bakiye: " + newBalance + " TL");
+        appendBalanceLog("🔢 Toplam İşlem: " + busCard.getTransactionCount());
+        appendBalanceLog("📅 İşlem Tarihi: " + LocalDate.now());
+        appendBalanceLog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        
+        // UI'yi güncelle
+        runOnUiThread(() -> {
+            tvDeductedAmount.setText("-" + fare + " TL");
+            tvDeductedAmount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            tvRemainingBalance.setText(newBalance + " TL");
+            tvRemainingBalance.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+        });
+        
+        return busCard;
+    }
+    
+    /**
+     * Sadece bakiye kesme işlemi için özel log metodu
+     */
+    private void appendBalanceLog(String message) {
+        runOnUiThread(() -> {
+            String timestamp = java.text.DateFormat.getTimeInstance().format(new java.util.Date());
+            String logMessage = "[" + timestamp + "] " + message + "\n";
+            tv.append(logMessage);
+            
+            // Scroll to bottom
+            tv.post(() -> {
+                int line = tv.getLineCount();
+                if (line > 0) {
+                    int offset = tv.getLineCount() * tv.getLineHeight();
+                    tv.scrollTo(0, offset - tv.getHeight() + tv.getLineHeight());
+                }
+            });
+        });
+    }
+    
+    /**
+     * Güncellenmiş BusCard verisini karta yazar
+     */
+    private boolean writeUpdatedCardToMifare(BusCard updatedBusCard) {
+        try {
+            appendLog("📝 Güncellenmiş veri karta yazılıyor...");
+            
+            // BusCard'ı şifrele
+            byte[] encryptedData = AESEncryption.encryptBusCardForCard(updatedBusCard);
+            
+            // MIFARE Classic 1K parametreleri
+            final int START_BLOCK = 4;
+            final int MAX_BLOCKS_ALLOWED = 45;
+            
+            // Blok sayısı kontrolü
+            int blocksNeeded = (int)Math.ceil(encryptedData.length / 16.0);
+            if (blocksNeeded > MAX_BLOCKS_ALLOWED) {
+                appendLog("❌ Hata: " + blocksNeeded + " blok gerekiyor; maksimum " + MAX_BLOCKS_ALLOWED);
+                return false;
+            }
+            
+            appendLog("🔢 Gerekli blok sayısı: " + blocksNeeded);
+            
+            // MIFARE Classic karta yaz
+            writePayloadToMifareClassic(encryptedData, START_BLOCK);
+            
+            appendLog("✅ Güncellenmiş veri başarıyla karta yazıldı!");
+            return true;
+            
+        } catch (Exception e) {
+            appendLog("❌ Kart yazma hatası: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * MIFARE Classic karta payload yazar
+     */
+    private void writePayloadToMifareClassic(byte[] fullPayload, int startBlock) throws Exception {
+        appendLog("📀 MIFARE Classic 1K karta veri yazılıyor...");
+
+        final byte[] DEFAULT_KEY = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+        final byte[] ALT_KEY_A   = {(byte)0xA0,(byte)0xA1,(byte)0xA2,(byte)0xA3,(byte)0xA4,(byte)0xA5};
+        final byte[] ALT_KEY_B   = {(byte)0xB0,(byte)0xB1,(byte)0xB2,(byte)0xB3,(byte)0xB4,(byte)0xB5};
+        
+        // Daha fazla anahtar deneyelim
+        final byte[] ZERO_KEY = {(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00};
+        final byte[] A0A0_KEY = {(byte)0xA0,(byte)0xA0,(byte)0xA0,(byte)0xA0,(byte)0xA0,(byte)0xA0};
+        final byte[] D3F7_KEY = {(byte)0xD3,(byte)0xF7,(byte)0xD3,(byte)0xF7,(byte)0xD3,(byte)0xF7};
+
+        int blocksNeeded = (int) Math.ceil(fullPayload.length / 16.0);
+        int currentBlock = startBlock;
+        int index = 0;
+
+        while (index < fullPayload.length) {
+            int sector = currentBlock / 4;
+            int blockInSector = currentBlock % 4;
+
+            if (blockInSector == 0) {
+                boolean authOK = false;
+
+                // Daha fazla anahtar dene
+                byte[][] keyList = {DEFAULT_KEY, ALT_KEY_A, ALT_KEY_B, ZERO_KEY, A0A0_KEY, D3F7_KEY};
+                for (byte[] key : keyList) {
+                    if (authenticateSector(currentBlock, key, (byte)0x60)) {
+                        appendLog("🔑 Sektör " + sector + " Key A ile doğrulandı (" + bytesToHex(key) + ")");
+                        authOK = true;
+                        break;
+                    } else if (authenticateSector(currentBlock, key, (byte)0x61)) {
+                        appendLog("🔑 Sektör " + sector + " Key B ile doğrulandı (" + bytesToHex(key) + ")");
+                        authOK = true;
+                        break;
+                    }
+                }
+
+                if (!authOK) {
+                    appendLog("⚠️ Sektör " + sector + " kimlik doğrulama başarısız, atlanıyor...");
+                    // Bu sektörü atla ve bir sonrakine geç
+                    currentBlock = ((sector + 1) * 4);
+                    continue;
+                }
+            }
+
+            if (blockInSector == 3) {
+                appendLog("⏭️ Trailer blok (blok " + currentBlock + ") atlandı.");
+                currentBlock++;
+                continue;
+            }
+
+            byte[] blockData = new byte[16];
+            int toCopy = Math.min(16, fullPayload.length - index);
+            System.arraycopy(fullPayload, index, blockData, 0, toCopy);
+
+            // Bloku yaz
+            String[] writeResult = BasicOper.dc_write_hex(currentBlock, bytesToHex(blockData).replace(" ", "")).split("\\|", -1);
+            if (writeResult[0].equals("0000")) {
+                appendLog("✓ Blok " + currentBlock + " yazıldı (" + toCopy + " byte)");
+            } else {
+                appendLog("❌ Blok " + currentBlock + " yazılamadı (SW=" + writeResult[0] + ")");
+                throw new Exception("Blok yazma hatası: " + writeResult[0]);
+            }
+
+            index += toCopy;
+            currentBlock++;
+            // Delay kaldırıldı - hızlandırma için
+        }
+
+        appendLog("✅ Yazma işlemi tamamlandı!");
+    }
+    
+    /**
      * MIFARE Classic karttan BusCard verisi okur ve çözer
      */
     private BusCard readBusCardFromCard(byte[] cardData) throws Exception {
@@ -528,8 +772,8 @@ public class MainActivity extends AppCompatActivity {
         appendLog("📖 MIFARE Classic karttan BusCard verisi okunuyor...");
         appendLog("📊 Toplam veri uzunluğu: " + cardData.length + " byte");
         
-        // NfcCardReader.java'daki birebir aynı fonksiyonu kullan
-        BusCard busCard = NfcCardReader.readBusCardFromCard(cardData);
+        // AESEncryption ile çöz
+        BusCard busCard = AESEncryption.decryptCardDataToBusCard(cardData);
         busCard.setRawData(new String(cardData, "UTF-8"));
         busCard.setDecryptedData(cardData);
         
@@ -706,8 +950,8 @@ public class MainActivity extends AppCompatActivity {
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    appendLog("🔘 ŞİFRELİ KART ALGILANDI - OKUNUYOR...");
-                                    appendLog("================================================");
+                                    tvStatus.setText("🔘 Kart algılandı - Okunuyor...");
+                                    appendBalanceLog("🔘 KART ALGILANDI - OKUNUYOR...");
                                 }
                             });
                             
@@ -718,8 +962,9 @@ public class MainActivity extends AppCompatActivity {
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        appendLog("🆔 Kart UID: " + cardUid);
-                                        appendLog("✅ MIFARE Classic kart algılandı!");
+                                        tvStatus.setText("✅ Kart okundu - Veri işleniyor...");
+                                        appendBalanceLog("🆔 Kart UID: " + cardUid);
+                                        appendBalanceLog("✅ MIFARE Classic kart algılandı");
                                     }
                                 });
                                 
@@ -729,7 +974,7 @@ public class MainActivity extends AppCompatActivity {
                                     runOnUiThread(new Runnable() {
                                         @Override
                                         public void run() {
-                                            appendLog("✅ Kart verisi okundu: " + cardData.length + " byte");
+                                            appendBalanceLog("📊 Kart verisi okundu: " + cardData.length + " byte");
                                         }
                                     });
 
@@ -740,37 +985,69 @@ public class MainActivity extends AppCompatActivity {
                                         runOnUiThread(new Runnable() {
                                             @Override
                                             public void run() {
-                                                appendLog("\n✅ ŞİFRE ÇÖZME BAŞARILI!");
-                                                appendLog("================================");
-                                                appendLog(busCard.toString());
-                                                appendLog("================================");
-                                                
-                                                // Ham veriyi de logla
-                                                if (busCard.getRawData() != null) {
-                                                    appendLog("\n📄 ÇÖZÜLEN HAM VERİ:");
-                                                    appendLog("-------------------");
-                                                    appendLog(busCard.getRawData());
-                                                    appendLog("-------------------");
-                                                }
-                                                
-                                                // Byte dizisini de hex olarak göster
-                                                if (busCard.getDecryptedData() != null) {
-                                                    appendLog("\n🔢 ÇÖZÜLEN VERİ (HEX):");
-                                                    appendLog("---------------------");
-                                                    appendLog(bytesToHex(busCard.getDecryptedData()));
-                                                    appendLog("---------------------");
-                                                }
-                                                
-                                                appendLog("\n⏳ Yeni kart bekleniyor...");
+                                                appendBalanceLog("✅ ŞİFRE ÇÖZME BAŞARILI!");
+                                                appendBalanceLog("👤 Ad Soyad: " + (busCard.getFullName() != null ? busCard.getFullName() : "Bilinmiyor"));
+                                                appendBalanceLog("🎫 Kart Tipi: " + (busCard.getType() != null ? busCard.getType().getDisplayName() : "Bilinmiyor"));
+                                                appendBalanceLog("💰 Mevcut Bakiye: " + (busCard.getBalance() != null ? busCard.getBalance() : "0") + " TL");
+                                                appendBalanceLog("🔢 Toplam İşlem: " + busCard.getTransactionCount());
                                             }
                                         });
+                                        
+                                        // Bakiye kesme ve kart güncelleme işlemi
+                                        try {
+                                            runOnUiThread(() -> {
+                                                tvStatus.setText("💳 Bakiye kesme işlemi...");
+                                            });
+                                            
+                                            appendBalanceLog("💳 BAKİYE KESME İŞLEMİ BAŞLATILIYOR...");
+                                            
+                                            // Bakiye düşür
+                                            BusCard updatedBusCard = deductBalanceFromCard(busCard);
+                                            
+                                            if (updatedBusCard != null) {
+                                                // Güncellenmiş veriyi karta yaz
+                                                boolean writeSuccess = writeUpdatedCardToMifare(updatedBusCard);
+                                                
+                                                if (writeSuccess) {
+                                                    runOnUiThread(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            tvStatus.setText("✅ İşlem tamamlandı!");
+                                                            appendBalanceLog("🎉 İŞLEM TAMAMLANDI!");
+                                                            appendBalanceLog("✅ Kart güncellendi");
+                                                            appendBalanceLog("💰 Güncel Bakiye: " + updatedBusCard.getBalance() + " TL");
+                                                            appendBalanceLog("🔢 Toplam İşlem: " + updatedBusCard.getTransactionCount());
+                                                            appendBalanceLog("📅 Son İşlem: " + updatedBusCard.getLastTransactionDate());
+                                                        }
+                                                    });
+                                                } else {
+                                                    runOnUiThread(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            tvStatus.setText("❌ Kart güncelleme hatası!");
+                                                            appendBalanceLog("❌ KART GÜNCELLEME HATASI!");
+                                                            appendBalanceLog("⚠️ Bakiye düşürüldü ama kart güncellenemedi!");
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                            
+                                        } catch (Exception e) {
+                                            runOnUiThread(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    tvStatus.setText("❌ Bakiye kesme hatası!");
+                                                    appendBalanceLog("❌ BAKİYE KESME HATASI: " + e.getMessage());
+                                                }
+                                            });
+                                        }
                                         
                                     } catch (Exception e) {
                                         runOnUiThread(new Runnable() {
                                             @Override
                                             public void run() {
-                                                appendLog("❌ Şifre çözme hatası: " + e.getMessage());
-                                                appendLog("⏳ Yeni kart bekleniyor...");
+                                                tvStatus.setText("❌ Şifre çözme hatası!");
+                                                appendBalanceLog("❌ Şifre çözme hatası: " + e.getMessage());
                                             }
                                         });
                                     }
@@ -779,50 +1056,45 @@ public class MainActivity extends AppCompatActivity {
                                     runOnUiThread(new Runnable() {
                                         @Override
                                         public void run() {
-                                            appendLog("❌ HATA: Kart verisi okunamadı!");
-                                            appendLog("⏳ Yeni kart bekleniyor...");
+                                            tvStatus.setText("❌ Kart verisi okunamadı!");
+                                            appendBalanceLog("❌ HATA: Kart verisi okunamadı!");
                                         }
                                     });
                                 }
                                 
-                                // Kartın çıkarılmasını bekle
-                                st = removeM1Card();
-                                if (st == 0) {
+                                // Kart işlemi tamamlandı - anında yeni karta geçiş
                                     runOnUiThread(new Runnable() {
                                         @Override
                                         public void run() {
-                                            appendLog("✅ Kart işlemi tamamlandı!");
-                                            appendLog("🔍 Yeni şifreli kart bekleniyor...");
-                                        }
-                                    });
-                                }
+                                        tvStatus.setText("✅ İşlem tamamlandı - Yeni kart bekleniyor...");
+                                        appendBalanceLog("✅ Kart işlemi tamamlandı");
+                                        appendBalanceLog("🔍 Yeni kart bekleniyor...");
+                                        appendBalanceLog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                                    }
+                                });
                                 
                             } else {
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        appendLog("❌ UID okunamadı!");
-                                        appendLog("⏳ Yeni kart bekleniyor...");
+                                        tvStatus.setText("❌ UID okunamadı!");
+                                        appendBalanceLog("❌ UID okunamadı!");
                                     }
                                 });
                             }
                         }
                         
-                        // 500ms bekle
-                        Thread.sleep(500);
+                        // Delay kaldırıldı - hızlandırma için
                         
                     } catch (Exception e) {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                appendLog("❌ Otomatik okuma hatası: " + e.getMessage());
+                                tvStatus.setText("❌ Okuma hatası!");
+                                appendBalanceLog("❌ Otomatik okuma hatası: " + e.getMessage());
                             }
                         });
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException ie) {
-                            break;
-                        }
+                        // Delay kaldırıldı - hızlandırma için
                     }
                 }
             }
