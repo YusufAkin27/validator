@@ -1,0 +1,83 @@
+<resources>
+    <string name="app_name">exampleSrc</string>
+
+    <!-- strings for format picc -->
+    <string name="header_format_picc">Format the PICC</string>
+    <string name="description_format_picc">Formatting the PICC will delete all applications and files on the PICC and releases all storage space back to factory settings.\n
+    The settings of the Master Application are not reset so if you changed the default Master Application Key and key settings these changes will remain.</string>
+    <string name="warning_format_picc">WARNING: The app will IMMEDIATELY FORMAT the PICC when attached without any further confirmation !\n\n
+    You will loose any existing applications and files on the PICC without recovery !</string>
+    <string name="more_information_format_picc">Formatting the PICC will release all storage space back to factory settings.\n
+    The settings of the Master Application are not reset so if you changed the default Master Application Key and/or key settings these changes will remain.\n\n
+    The app will authenticate with the DEFAULT Master Application Key first to run the format PICC command.</string>
+
+    <!-- strings for setup test environment -->
+    <string name="header_setup_test_environment">Setup a test environment</string>
+    <string name="description_setup_test_environment">For testing the features of the DesfireEv3 class this activity will prepare the PICC with all necessary application and files</string>
+    <string name="warning_setup_test_environment">WARNING: The app will IMMEDIATELY run all setups when attached without any further confirmation !\n
+    This includes a FORMAT of the PICC - you will loose any existing applications and files on the PICC without recovery !</string>
+    <string name="more_information_setup_test_environment">More Information about the application and file creations:\n
+    1) The app will FORMAT the PICC so the complete PICC memory is available.\n
+    2) The app will create a new application with applicationID A1A2A3. The app will have 5 AES based application keys.
+        There are no restrictions on file and directory handling (default settings).\n
+    3) In the new application some files are created with these file numbers and access rights (R &amp; W 1, CAR 2, R 3, W 4):\n
+    00 Standard File, 256 file size, communication mode Plain\n
+    01 Standard File, 256 file size, communication mode MACed\n
+    02 Standard File, 256 file size, communication mode Full enciphered\n
+    03 Backup File, 32 file size, communication mode Plain\n
+    04 Backup File, 32 file size, communication mode MACed\n
+    05 Standard File, 32 file size, communication mode Full enciphered\n
+    06 Value File, communication mode Plain\n
+    07 Value File, communication mode MACed\n
+    08 Value File, communication mode Full enciphered\n
+    09 Linear Record file, 32 record size, 3 maximum number of records, communication mode Plain\n
+    10 Linear Record file, 32 record size, 3 maximum number of records, communication mode MACed\n
+    11 Linear Record file, 32 record size, 3 maximum number of records, communication mode Full enciphered\n
+    12 Cyclic Record file, 32 record size, 4 maximum number of records, communication mode Plain\n
+    13 Cyclic Record file, 32 record size, 4 maximum number of records, communication mode MACed\n
+    14 Cyclic Record file, 32 record size, 4 maximum number of records, communication mode Full enciphered\n
+    \n\nThe PICC will be formatted immediately after tapping without any further confirmation, the PICC is authenticated with DEFAULT DES Master Application KEY\n\n
+    </string>
+
+    <!-- strings for personalizing the PICC -->
+    <string name="header_personalize">Personalize the PICC</string>
+    <string name="description_personalize">Changes the application keys to individual ones including the Master Application key</string>
+    <string name="warning_personalize">WARNING: The app will IMMEDIATELY run all personalizing steps when attached without any further confirmation !</string>
+    <string name="more_information_personalize">More Information about the application and file creations:\n\n
+    For changing the application keys from DEFAULT to CHANGED or CHANGED to DEFAULT:\n
+    1) select the application with applicationID A1A2A3\n
+    2) authenticate with Application Master key = key number 00 (AES DEFAULT)\n
+    3) change the application keys Read &amp; Write Access, Change Access Rights, Read Access and Write Access rights (key numbers 01..04)\n
+    4) change the Application Master key (key number 00)\n\n
+    For changing the Master Application key from DEFAULT to CHANGED or CHANGED to DEFAULT:\n
+    5) select the Master Application with applicationId 000000\n
+    6) authenticate with Master Application key = key number 00 (DES DEFAULT)\n
+    7) change the Master Application key value\n\n
+    For changing the Master Application key from DES DEFAULT to AES DEFAULT:\n
+    8) select the Master Application with applicationId 000000\n
+    9) authenticate with Master Application key = key number 00 (DES DEFAULT)\n
+    10) change the Master Application key from DES DEFAULT to AES DEFAULT\n\n
+    Note: this is a one way option, with this app you cannot change the Master Application key back to a DES key,
+    use my app MifareDesfireEv3MasterkeyToDesNFCJLib for this task.\n
+
+    </string>
+
+    <!-- strings for creating an application -->
+    <string name="header_create_application">Create an application</string>
+    <string name="description_create_application">Creates an application on the PICC with AES keys</string>
+    <string name="warning_create_application">This will create an application on the PICC without any further conformation</string>
+    <string name="more_information_create_application">more\n</string>
+
+    <string name="header_create_file">Create File</string>
+    <string name="description_create_file">description:</string>
+    <string name="warning_create_file">WARNING:</string>
+
+
+    <!-- strings for setup DESFire Light environment -->
+    <string name="header_setup_light_environment">Setup a DESFire Light environment</string>
+    <string name="description_setup_light_environment">For testing the features of the Desfire Light class this activity will prepare the PICC with all necessary application and files that are pre-installed on a DESFire Light tag</string>
+    <string name="warning_setup_light_environment">WARNING: The app will IMMEDIATELY run all setups when attached without any further confirmation !\n
+    This includes a FORMAT of the PICC - you will loose any existing applications and files on the PICC without recovery !</string>
+    <string name="more_information_setup_light_environment">more</string>
+
+</resources>
